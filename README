@@ -1,0 +1,3 @@
+CM->Devel was a Object Relational wrapper I developed in 2000 to map OO models to SQL queries.
+
+In a pre-mvc world, CM->Devel implemented partially what we the Model and View of MVC. It was used in several inhouse project at LEC and was heavelly used at AMADIS Virtual Learning Environment.

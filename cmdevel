@@ -1,0 +1,39 @@
+#!/bin/sh
+
+#this file was originaly baseated in the pear CLI script
+
+# first find which PHP binary to use
+if test "x$PHP_CMDEVEL_PHP_BIN" != "x"; then
+  PHP="$PHP_CMDEVEL_PHP_BIN"
+else
+  if test "/usr/bin/php" = '@'php_bin'@'; then
+    PHP=php
+  else
+    PHP="/usr/local/bin/php"
+  fi
+fi
+
+# then look for the right pear include dir
+if test "x$PHP_CMDEVEL_INSTALL_DIR" != "x"; then
+  INCDIR=$PHP_CMDEVEL_INSTALL_DIR
+  INCARG="-d include_path=$PHP_CMDEVEL_INSTALL_DIR:/usr/lib/php"
+else
+  if test "/home/robson/cmdevel" = '@'php_dir'@'; then
+    INCDIR=`dirname $0`
+    INCARG=""
+  else
+    INCDIR="/home/robson/cmdevel"
+    if test -d "/usr/lib/php"; then
+	INCARG="-d include_path=/usr/lib/php:/home/robson/cmdevel"
+    else
+	if test -d "/usr/local/lib/php"; then
+	    INCARG="-d include_path=/usr/local/lib/php:/home/robson/cmdevel"
+	else
+            echo "Cannot find PHP libs."
+            exit
+        fi
+    fi
+  fi
+fi
+
+exec $PHP -C -q $INCARG -d output_buffering=1 $INCDIR/cmcli.php "$@"

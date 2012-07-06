@@ -1,0 +1,561 @@
+<?php
+
+/**
+ * CMObj is the main class in 
+ *
+ *
+ * @author Juliano Bittencourt<juliano@lec.ufrgs.br> and Maicon Brauwers <maicon@edu.ufrgs.br> 
+ * @access public
+ * @version 0.7
+ * @abstract
+ * @package cmdevel
+ * @subpackage cmpersistence
+ **/
+
+abstract class CMObj {
+
+
+	const TYPE_INTEGER=0;
+	const TYPE_BLOB=1;
+	const TYPE_CHAR=2;
+	const TYPE_VARCHAR=3;
+	const TYPE_TEXT=4;
+	const TYPE_FLOAT=5;
+	const TYPE_ENUM=6;
+	const TYPE_SET=7;
+	const TYPE_BOOLEAN=8;
+
+	const STATE_NEW = 0;
+	const STATE_PERSISTENT = 1;
+	const STATE_DIRTY = 2;
+	const STATE_DIRTY_NEW = 3;
+
+	private static $_config = array();
+	private static $_inicialized = array();
+
+	private static $_cmobj_initialized = 0;
+	private static $_db;
+
+
+	public $fieldsValues;
+	public $variablesValues=array();
+
+	public $state = CMOBJ::STATE_NEW;
+	private $dirty = array();
+	public $class_conf;
+
+	public $update_after_insert = 1;
+
+
+
+  /**
+   * 
+   **/
+	public function __construct() {
+		$this->class_conf = &self::$_config[get_class($this)];
+
+    //tests if this class has alredy been initialized
+    // if false, it calls the class init method, if true,
+    // it do nothing, becausa an instance of this class
+    // has been created before, so the initialization is
+    // complete. It initializes the class only one time per
+    // access.
+
+		if(!self::$_cmobj_initialized) {
+			CMObj::__init();
+			self::$_cmobj_initialized = 1;
+		}
+		self::$_inicialized[get_class($this)] = "";
+
+		if(!self::$_inicialized[get_class($this)]) {
+			$this->class_conf['fields'] = array();
+			$this->class_conf['fieldsDescription'] = array();
+			$this->class_conf['primaryKeys'] = array();
+			$this->class_conf['tableName'] = "";
+			$this->class_conf['autoIncrementFields'] = array();
+			$this->class_conf['relations'] = array();
+
+			$this->configure();
+
+			$this->class_conf['defaults_fields_values'] = array();
+			foreach($this->class_conf['fields'] as $fieldName) {
+				$this->class_conf['defaults_fields_values'][$fieldName] = "";
+			}
+
+			self::$_inicialized[get_class($this)] = true;
+		}
+
+    //create an array indexed by the fields names
+    //and with 0 values;
+		$this->fieldsValues = $this->class_conf['defaults_fields_values'];
+	}
+
+
+  /**
+   * This methos inicializes the CMObj static variables.
+   *
+   * @access private
+   * 
+   **/
+	final private function __init() {
+		global $_CMAPP;
+
+		if($_CMAPP['db'] instanceof CMDBConnection) {
+			self::$_db = $_CMAPP['db'];
+		}
+		else {
+			throw new CMDBConnectionNotFound;
+		}
+
+
+	}
+
+
+  /**
+   * @access private
+   **/
+	abstract function configure();
+
+
+
+	function getTable() {
+		return $this->class_conf['tableName'];
+	}
+
+
+  /**
+   * Returns the class database mapping configuration.
+   **/
+	public function getConf() {
+		return $this->class_conf;
+	}
+
+
+
+  /** 
+   *
+   * @todo Verifies if self::$_autoIncrementFields is really necessary.
+   **/
+	protected function addField($name,$type,$size,$notNull,$default,$autoIncrement=0) {
+		$this->class_conf['fieldsDescription'][$name] = array(
+							"type" => $type,
+							"size" => $size,
+							"notNull" => $notNull,
+							"default" => $default,
+							"autoIncrement" => $autoIncrement
+		);
+
+		$this->class_conf['fields'][] = $name;
+
+    //if this field is an auto increment, stores it in a separate list,
+    //to provide fastest access.
+		if($autoIncrement)
+		$this->class_conf['autoIncrementFields'][] = $name;
+	}
+
+
+
+	protected function setTable($table_name) {
+		$this->class_conf['tableName'] = $table_name;
+	}
+
+	protected function addPrimaryKey($name) {
+		$this->class_conf['primaryKeys'][] = $name;
+	}
+
+	protected function addRelation($field1, $class, $field2) {
+		$this->class_conf['relations'][] = array("field"=>$field1,
+					   "class"=>$class,
+					   "related_field"=>$field2);
+
+	}
+
+	protected function getRelations($class) {
+		$rels = array();
+		foreach($this->class_conf['relations'] as $rel) {
+			if($rel["class"]==$class)
+			$rels[]=$rel;
+		}
+		return $rels;
+	}
+
+	public function addVariable($name,$value) {
+		$this->variablesValues[$name]=$value;
+	}
+
+  /**
+   * Tests if a variable is defined in this object
+   **/
+	public function isVariableDefined($name) {
+		return isset($this->variablesValues[$name]);
+	}
+	
+
+	protected function setEnumValidValues($field,$values) {
+		$type = $this->class_conf['fieldsDescription'][$field]['type'];
+		if($type!=CMObj::TYPE_ENUM) {
+			Throw new CMObjEPropertieTypeMismacthed("You can only use this function in an enum propertie.");
+		}
+
+		$this->class_conf['enum_fields_values'][$field] = $values;
+
+	}
+	
+	/**
+	 * Test if a field has changed since the object was loaded from the db.
+	 * 
+	 * @parameter string $field The name of the field to be tested.
+	 * @return boolean True is the field has changed.
+	 **/
+	protected function testDirty($field) 
+	{
+	  return in_array($field, $this->dirty);
+	}
+
+
+  /**
+   * This function populate the properties of the object using the data from an associative array
+   *
+   * This function populate the properties of the object using the data
+   * from an associative array. The array must be in the format 
+   * array("propertieName"=>value). The preffix is appended in the
+   * beginning of each propertie name.
+   *
+   * Example:
+   * @example 
+   *
+   * param @values Array An array with the values for the object.
+   * param @preffix String An preffix to the name of properties.
+   *
+   **/ 
+	public function populateFromArray($values,$preffix="") {
+		foreach($this->class_conf['fields'] as $field)
+		if(!empty($values[$preffix.$field])) {
+			if($this->fieldsValues[$field] != $values[$preffix.$field]) {
+				$this->fieldsValues[$field] = $values[$preffix.$field];
+				if(($this->state == self::STATE_DIRTY) ||
+				($this->state == self::STATE_PERSISTENT)) {
+					$this->dirty[] = $field;
+					$this->state = self::STATE_DIRTY;
+				}
+			}
+		}
+
+	}
+
+	public function loadDataFromRequest() {
+		$this->populateFromArray($_REQUEST,"frm_");
+	}
+
+	public function toArray() {
+		return array_merge($this->fieldsValues,$this->variableValues);
+	}
+
+	public function getFields() {
+		return $this->class_conf['fields'];
+	}
+
+
+	function setState($state) {
+		$this->state = $state;
+	}
+
+
+	function getState() {
+		return $this->state;
+	}
+
+
+
+  /**
+   * Loads a row from the database into a object.
+   *
+   * This is one of the most import function in CMObj. It is designed
+   * to load exactly one row from the database an populate the object
+   * with its data. The values to be searched in the database are those
+   * present in the own object fields list.
+   *
+   * <code>
+   *
+   * class Person extends CMObj {
+   *   static function configure() {
+   *      self::$_tableName = "test";
+   *      self::addField("code",CMObj::TYPE_INTEGER,11,1,0,1);
+   *      self::addField("name",CMObj::TYPE_VARCHAR,100,1,0,0);
+   *   }
+   * }
+   *
+   * $person = new Person;
+   * $person->name = "John";
+   * $peson->load();
+   * </code>
+   *
+   * In this example we load in the current object the data from John.
+   * This query must return exactly one row, otherwise an CMDBNoRecord or
+   * a CMOBJException will be thrown.
+   *
+   * @access public
+   *
+   **/
+	public function load() {
+
+		$whereItens = array();
+		foreach($this->fieldsValues as $name=>$value) {
+			if(!empty($value)) {
+				if($this->class_conf['fieldsDescription'][$name]['type']==self::TYPE_BLOB)
+				continue;
+				switch($this->class_conf['fieldsDescription'][$name]['type']) {
+				case  self::TYPE_INTEGER:
+					$whereItens[].=" $name=$value ";
+					break;
+			  case  self::TYPE_BOOLEAN:
+					$whereItens[].= $value? " $name=true ": " $name=false ";
+          break;
+        default:
+					$whereItens[].=" $name=\"".self::$_db->escapeString($value)."\" ";
+					break;
+				}
+			}
+		}
+
+		$sql = "SELECT * FROM ".$this->class_conf['tableName']." WHERE ".implode(" AND ",$whereItens);
+		
+		$res = self::$_db->query($sql);
+		switch(mysqli_num_rows($res)) {
+			case 0:
+				Throw new CMDBNoRecord($sql);
+				break;
+			case 1:
+				$this->populateFromArray($res->fetch_assoc());
+				$this->state = self::STATE_PERSISTENT;
+				break;
+			default:
+				Throw new CMObjEMoreThanOneRow;
+		}
+
+		$res->free();
+	}
+
+
+	public function delete() {
+		if(!self::$_cmobj_initialized) {
+			CMObj::__init();
+			self::$_cmobj_initialized = 1;
+		}
+
+		if($this->state==self::STATE_NEW) {
+			Throw new CMObjEDeleteNotAllowed;
+		}
+
+		$where = "";
+		if(!empty($this->class_conf['primaryKeys'])) {
+			$keys = array();
+			foreach($this->class_conf['primaryKeys'] as $pk) {
+				if($this->class_conf['fieldsDescription'][$pk]['type']==self::TYPE_INTEGER) {
+					$keys[]=" $pk=".$this->fieldsValues[$pk]." ";
+				}
+				else {
+					$keys[]=" $pk=\"".self::$_db->escapeString($this->fieldsValues[$pk])."\" ";
+				}
+			}
+			$where.= implode(" AND ",$keys);
+		}
+		else {
+			Throw new CMObjENoPrimaryKeySet;
+		}
+		$sql = "DELETE FROM ".$this->class_conf['tableName']." WHERE $where";
+		$res = self::$_db->query($sql);
+	}
+
+
+  /**
+   *
+   */
+	public function save() {
+		if(!self::$_cmobj_initialized) {
+			CMObj::__init();
+			self::$_cmobj_initialized = 1;
+		}
+		$field = array();
+		switch($this->state) {
+			case self::STATE_NEW:
+			case self::STATE_DIRTY_NEW:
+				foreach($this->fieldsValues as $name=>$value) {
+					if( !in_array($name,$this->class_conf['autoIncrementFields'])
+					and !empty($value) ) {
+						if($this->class_conf['fieldsDescription'][$name]['type']==self::TYPE_INTEGER) {
+							$field[]=" $name=$value ";
+						}
+						else {
+							$field[]=" $name=\"".self::$_db->escapeString($value)."\" ";
+						}
+					}
+					else {
+						if(!empty($value))
+						Throw new CMObjEAutoIncrementFieldSet($name);
+					}
+				}
+				
+				$sql = implode(",",$field);
+
+				if(empty($sql)) {
+					Throw new CMObjEEmptyObj;
+				}
+
+				$sql = "INSERT INTO ".$this->class_conf['tableName']." SET $sql ";
+				try {
+					$res = self::$_db->query($sql);
+				} catch(CMDBQueryError $e) {
+					if($e->getError()==CMDBQueryError::ERROR_DUPLICATED_ENTRY) {
+						Throw new CMObjEDuplicatedEntry;
+					} else Throw $e;
+
+				}
+
+				if($this->update_after_insert) {
+                    $id = self::$_db->getInsertId();
+					if($id) {
+                        $field = $this->class_conf['autoIncrementFields'][0];
+                        if(!empty($field)) $this->fieldsValues[$field] = $id;
+					}
+				    $this->load();
+				}
+				break;
+			case self::STATE_DIRTY:
+				$set = "";
+				$where = "";
+      //if this table doesnt have a primary key, then we must
+      //use all its cols in the where clause.
+				if(!empty($this->class_conf['primaryKeys'])) {
+					$keys=array();
+					foreach($this->class_conf['primaryKeys'] as $pk) {
+						if($this->class_conf['fieldsDescription'][$pk]['type']==self::TYPE_INTEGER) {
+							$keys[]=" $pk=".$this->fieldsValues[$pk]." ";
+						}
+						else {
+							$keys[]=" $pk=\"".self::$_db->escapeString($this->fieldsValues[$pk])."\" ";
+						}
+					}
+					$where.=implode(" AND ",$keys);
+
+				}
+				else {
+					Throw new CMObjENoPrimaryKeySet;
+				}
+				
+				$sets = array();
+
+				foreach($this->dirty as $name=>$col) {
+					
+					if(in_array($col,$this->class_conf['autoIncrementFields'])) continue;
+
+					if($this->class_conf['fieldsDescription'][$col]['type']==self::TYPE_INTEGER) {
+						$sets[]=" $col=".$this->fieldsValues[$col]." ";
+					}
+					else {
+						$sets[]=" $col=\"".self::$_db->escapeString($this->fieldsValues[$col])."\" ";
+					}
+				}
+				$set = implode(", ",$sets);
+
+				$sql = "UPDATE ".$this->class_conf['tableName']." SET $set WHERE $where ";
+
+				$res = self::$_db->query($sql);
+
+				$this->state = self::STATE_PERSISTENT;
+				$this->dirty = array();
+				break;
+		}
+
+	}
+
+
+  /**
+   * Start of the magic methods in this class
+   **/
+
+
+	public function __toString() {
+		return "<pre>".var_export($this,true)."</pre>";
+	}
+
+
+  /**
+   *
+   */
+	public function __set($name,$value) {
+		if(array_key_exists($name,$this->fieldsValues)) {
+      //if the state=new then we cannot set it to
+      //dirty. Dirty only aplies if the record was
+      //loaded from the database or was saved before;
+			if(($this->state==self::STATE_PERSISTENT) || ($this->state == self::STATE_DIRTY)) {
+				$this->state = self::STATE_DIRTY;
+				$this->dirty[] = $name;
+			} else {
+				$this->state = self::STATE_DIRTY_NEW;
+				$this->dirty[] = $name;
+			}
+
+      //validates the properties types
+			switch($this->class_conf['fieldsDescription'][$name]['type']) {
+				case self::TYPE_ENUM:
+					if(empty($this->class_conf['enum_fields_values'][$name])) {
+						Throw new CMObjEEnumValuesNotSet;
+					}
+					if(!in_array($value,$this->class_conf['enum_fields_values'][$name])) {
+						Throw new CMObjEPropertieValueNotValid("This value is not part of this enum.");
+					}
+					break;
+				case self::TYPE_INTEGER:
+	//tests if the value is an integer or an string that has an integer value
+					if(!(is_numeric($value) ? intval($value) == $value : false)) {
+						Throw new CMObjEPropertieValueNotValid("This propertie only accepts Integer values.");
+					}
+					break;
+      case self::TYPE_INTEGER:
+	//tests if the value is a boolean that has an integer value
+					if(!(($value==true) || ($value==false))) {
+						Throw new CMObjEPropertieValueNotValid("This propertie only accepts Integer values.");
+					}
+					break;					
+				case self::TYPE_FLOAT:
+	//tests if the value is an float or an string that has an float value
+					if(!(is_numeric($value) ? floatval($value) == $value : false)) {
+						Throw new CMObjEPropertieValueNotValid("This propertie only accepts Float values.");
+					}
+					break;
+			}
+			$this->fieldsValues[$name] = $value;
+		}
+		else {
+			if(array_key_exists($name,$this->variablesValues)) {
+				Throw new CMObjEVariableChangeNotAllowed($name);
+			}
+			else {
+				Throw new CMObjEPropertieNotDefined($name);
+			}
+		}
+	}
+
+
+	public function __get($name) {
+		if(array_key_exists($name,$this->fieldsValues)) {
+			return $this->fieldsValues[$name];
+		}
+		else {
+			if(array_key_exists($name,$this->variablesValues)) {
+				return $this->variablesValues[$name];
+			}
+			else {
+				Throw new CMObjEPropertieNotDefined($name);
+			}
+		}
+	}
+
+  
+
+}
+
+
+
+?>
