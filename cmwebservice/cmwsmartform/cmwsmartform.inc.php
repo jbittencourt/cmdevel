@@ -3,7 +3,6 @@
 include("cmwebservice/cmwsmartform/cmwform.inc.php");
 include("cminterface/cmhtmlformat.inc.php");
 
-
 /**
  * Classe cujo objetivo e automatizar o processo de construcao de formularios
  *
@@ -33,9 +32,9 @@ class CMWSmartForm extends CMWForm {
 
   function __construct($objClass,$name,$action="",$fields_rec="",$fields_hidden="",$fields_ausentes="",$method="POST",$enctype="") {
     global $_language;
-
+ 
     $this->__settings['spacing'] = 2;
-    
+ 
     parent::__construct($name,$action,$method,$enctype);
     
     if(is_string($fields_rec) || empty($fields_rec)) {
@@ -84,7 +83,7 @@ class CMWSmartForm extends CMWForm {
  
     $this->requires("cmwebservice/cmwsmartform/media/javascript/smartform.js.php",self::MEDIA_JS_WRAPPER);
     $this->requires("cmwebservice/cmwsmartform/media/javascript/browserSniffer.js",self::MEDIA_JS_WRAPPER);
-
+   
   }
 
   /**
@@ -518,9 +517,9 @@ tirar os dados
    * @param int $callWFormPrint : Se igual a 1 entao chama o metodo imprime do wform senao chama do rdpagobj direto.
       Isto serve para quando for adicionar um subformulario ele nao colocar as tags do <FORM> e </FORM> novamente.
    */
-  public function __toString($callWFormPrint=1) {
+  public function __toString() { //$callWFormPrint=1) {
     global $_CMAPP, $_language;
-    
+    $callWFormPrint=1; 
     if (empty($this->htmlFormat)) {
       //seta a 
       $this->setDefaultHtmlFormat();
@@ -708,8 +707,6 @@ tirar os dados
       return CMHTMLObj::__toString();
     
   }
-
-
 
 }
 

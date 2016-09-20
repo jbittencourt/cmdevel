@@ -1,6 +1,6 @@
-<?
+<?php
 
-include("cmwebservice/cmwsmartform/exceptions/cmwsmartformexception.inc.php");
+include($_CMDEVEL['path']."/cmwebservice/cmwsmartform/exceptions/cmwsmartformexception.inc.php");
 
 $_CMDEVEL["class_register"]['CMWSmartForm'] = 'cmwebservice/cmwsmartform/cmwsmartform.inc.php';
 $_CMDEVEL["class_register"]['CMWForm'] = 'cmwebservice/cmwsmartform/cmwform.inc.php';

@@ -69,13 +69,14 @@ class CMEnvSession extends CMObj {
   public function update()  {
     
     //evita que quando por algum acaso remova-se os cookies do browser crie um cadastro fantasma
-//     if(empty($this->sessID)) {
-//       echo "sessID".$this->sessID;
-//       return 0;
-//     };
-      $this->timeEnd = time();
-      $this->flagEnded = self::ENUM_FLAGENDED_NOT_ENDED;
-      $this->save();
+    # if(empty($this->sessID)) {
+    #   //echo "sessID".$this->sessID;
+    #   return 0;
+    # };
+    $this->state = CMOBJ::STATE_DIRTY;
+     $this->timeEnd = time();
+     $this->flagEnded = self::ENUM_FLAGENDED_NOT_ENDED;
+     $this->save();
   }
   
   /**
@@ -84,6 +85,7 @@ class CMEnvSession extends CMObj {
   public function close() {
     $this->timeEnd = time();
     $this->flagEnded = self::ENUM_FLAGENDED_ENDED;
+    $this->state = CMOBJ::STATE_DIRTY;
     $this->save();
   }
 

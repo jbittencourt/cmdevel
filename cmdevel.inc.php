@@ -1,4 +1,4 @@
-<?
+<?php
 /**
  * @package cmdevel
  **/
@@ -34,8 +34,8 @@ function __cmautoload($classname) {
 }
 
 //include exceptions
-include("exceptions/debugUtils.inc.php");
-include("exceptions/cmexception.inc.php");
-include("exceptions/cmnestedexception.inc.php");
+include($_CMDEVEL['path']."/exceptions/debugUtils.inc.php");
+include($_CMDEVEL['path']."/exceptions/cmexception.inc.php");
+include($_CMDEVEL['path']."/exceptions/cmnestedexception.inc.php");
 
 ?>

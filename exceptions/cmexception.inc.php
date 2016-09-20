@@ -1,4 +1,4 @@
-<?
+<?php
 
 /** BASE EXCEPTION CLASS FOR CMDEVEL **/
 /**
