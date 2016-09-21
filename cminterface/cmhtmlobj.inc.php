@@ -53,9 +53,9 @@ class CMHTMLObj {
    * @param mixed $line An string or an CMHTMLObj.
    * @access public
    */
-  public function add($line) { 
-    if(is_string($line)) $line .= "\n"; 
-    $this->body[]=$line;     
+  public function add($line) {
+    if(is_string($line)) $line .= "\n";
+    $this->body[]=$line;
   }
 
 
@@ -74,10 +74,10 @@ class CMHTMLObj {
 
   /**
    * This function adds an string or an CMObj in the beggining of the page.
-   * 
+   *
    * This function adds an string or an CMObj in the beggining of the page. It
    * can be very usefull when writing some Javascripts that for compatibilty
-   * with old browser like IE, should add div in the and of the page, out of 
+   * with old browser like IE, should add div in the and of the page, out of
    * any <div> or <table>
    **/
   function addPageBegin($item) {
@@ -108,14 +108,14 @@ class CMHTMLObj {
     $this->body[] = self::getScript($js);
   }
 
-   
+
 
   /**
    * Tell to the HTMLPage that que current object requires an JS ou CSS file.
    **/
   public function requires($file,$type=self::MEDIA_JS) {
     global $_CMDEVEL;
-    
+
     self::$_pageRequires[$file] = array("file"=>$file,
 					"type"=>$type);
   }
@@ -146,23 +146,24 @@ class CMHTMLObj {
     $buff = "";
     foreach($contents as $item) {
       if(is_string($item)) {
-	  $buff.= $item;
-      }
-      elseif (is_array($item)) {
-	$buff.= self::returnArray($item);
+	       $buff.= $item;
+      } elseif (is_array($item)) {
+	        $buff.= self::returnArray($item);
       } elseif(($item instanceof CMHTMLObj) or ($item instanceof CMObj) or ($item instanceof CMContainer)) {
-	//if is an interface object or a database object, call the __toString() method.
-	
-	if($item instanceof CMHTMLObj) {
-	  $buff.= $item->__toString();
-	}    
-	else {
-	  //otherwise throw an exception
-	  if(empty($item)) continue;
-	  Throw new CMIEUnrecognizedObject;
-	}
+	        //if is an interface object or a database object, call the __toString() method.
+
+        	if($item instanceof CMHTMLObj) {
+            // echo "Redering class: ".get_class($item)." </br>";
+            // $trash = $item->__toString();
+        	  $buff.= $item->__toString();
+        	}
+        	else {
+        	  //otherwise throw an exception
+        	  if(empty($item)) continue;
+        	  Throw new CMIEUnrecognizedObject;
+        	}
       }
-    } 
+    }
     return $buff;
   }
 
@@ -181,17 +182,17 @@ class CMHTMLObj {
    * @see CMHTMLPage
    * @access public
    */
-  public function __toString()  {  
+  public function __toString()  {
     if(!$this->inicialized) {
       Throw new CMIECMHTMLObjNotInitilied(get_class($this));
     }
 
     $buff = array();
-    
+
     if(!empty($this->body)) {
       reset($this->body);
       $buff[] = self::returnArray($this->body);
-    }    
+    }
     return implode("\n",$buff);
   }
 

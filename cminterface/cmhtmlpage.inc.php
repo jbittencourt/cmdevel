@@ -26,8 +26,8 @@ class CMHTMLPage extends CMHTMLObj
     public $title, $bgcolor, $bgimage, $OnLoad, $refreshRate;
     public $m_left, $m_top, $m_width, $m_height;
     public $script, $JSfiles, $styleFiles;
-	public $bodyStyle;
-    
+	  public $bodyStyle;
+
     protected $rssFeed;
 
     private $encoding = self::ENCODING_UTF8;
@@ -35,18 +35,18 @@ class CMHTMLPage extends CMHTMLObj
 
     function __construct($id="")
     {
-        parent::__construct();      
+        parent::__construct();
         $this->id = $id;
         $this->requires("cminterface/widgets/javascript/cmdevel.js",self::MEDIA_JS_WRAPPER);
     }
 
 
-    
+
     public function setEncoding($encode)
     {
         $this->encoding = $encode;
     }
-    
+
     public function setID($id)
     {
         $this->id = $id;
@@ -62,26 +62,26 @@ class CMHTMLPage extends CMHTMLObj
     {
         $this->title = $texto;
     }
-     
+
     public function setRefreshRate($time)
     {
         $this->refreshRate = $time;
     }
-     
+
     public function setOnLoad($texto)
     {
         $this->OnLoad = $texto;
     }
-     
+
     public function setOnClose($texto)
     {
         $this->OnClose = $texto;
     }
-    
-    
+
+
     /**
      * Sets the link for the corresponding rss feed of the current page.
-     * 
+     *
      * @var string $link Link to the RSS Feeds
      * @var string $title Title of the RSS Feeds
      */
@@ -105,7 +105,7 @@ class CMHTMLPage extends CMHTMLObj
     {
         $this->style[]="\t$line\n";
     }
-     
+
     public function addClassStyle($class, $line)
     {
         $this->style[] = "\t$class { $line }\n";
@@ -139,9 +139,9 @@ class CMHTMLPage extends CMHTMLObj
                 break;
        	    case self::XHTML_DTD_TYPE_STRICT:
                 $doc = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">';
-                break; 
+                break;
         }
-        
+
         return $doc;
     }
 
@@ -154,24 +154,24 @@ class CMHTMLPage extends CMHTMLObj
         echo  $this->getDoctype();
         echo  "\n<html ";
         if($this->dtdType == self::XHTML_DTD_TYPE_STRICT) echo 'xmlns="http://www.w3.org/1999/xhtml" xml:lang="pt-br" lang="pt-br"';
-        
+
         echo ">\n";
 
         $temp_body = parent::__toString();
-    //Head
-        
-        
+        //Head
+
+
         echo "<head>\n";
         if(!empty($this->refreshRate)){
             echo  "<meta http-equiv=\"refresh\" content=".$this->refreshRate." />\n";
         }
 
         echo "<meta http-equiv=\"Content-Type\" content=\"text/html;charset=$this->encoding\" />\n";
-  
+
         if(!empty($this->title)) {
             echo "<title>".$this->title."</title>\n";
         }
-        
+
         $req = CMHTMLObj::getPageRequires();
 
         if(!empty($req)) {
@@ -209,7 +209,7 @@ class CMHTMLPage extends CMHTMLObj
             };
         }
 
-        
+
         if(!empty($this->style)) {
             echo "<style type=\"text/css\">\n";
             reset($this->style);
@@ -218,16 +218,16 @@ class CMHTMLPage extends CMHTMLObj
             };
             echo "</style>\n";
         }
-         
-        
+
+
 
         if(!empty($this->favicon)) {
             echo "<link rel=\"icon\" href=\"$this->favicon\" type=\"image/ico\"/>\n";
             echo "<link rel=\"SHORTCUT ICON\" href=\"$this->favicon\"/>\n";
         }
-        
+
         if(is_array($this->rssFeed)) {
-			
+
             echo '<link rel="alternate" title="';
             if (empty($this->rssFeed['title']))
             	echo $this->title;
@@ -235,7 +235,7 @@ class CMHTMLPage extends CMHTMLObj
             	echo $this->rssFeed['title'];
             echo '" href="'.$this->rssFeed['link'].'" type="application/rss+xml"/>'."\n";
         }
-        
+
         echo "</head>\n";
 
 
@@ -267,7 +267,7 @@ class CMHTMLPage extends CMHTMLObj
             echo " onUnLoad=\"$this->OnClose\"";
         }
 
-		
+
         echo 'class="' . $this->bodyStyle .'"';
 
         echo ">\n";
@@ -306,12 +306,10 @@ class CMHTMLPage extends CMHTMLObj
                 $preload.="'$img',";
             }
 
-        }    
+        }
 
         echo "\n</body>\n";
         echo "</html>";
         return "";
     }
 }
-
-
